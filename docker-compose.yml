@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # 1. MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: orders_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: '123456' # Mật khẩu root
+      MYSQL_DATABASE: orders_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: '123456' # Mật khẩu bạn yêu cầu
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  # 2. RabbitMQ
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: orders_rabbitmq
+    ports:
+      - "5672:5672" # Port kết nối ứng dụng
+      - "15672:15672" # Port UI quản lý (user/pass: guest/guest)
+
+  # 3. Orders Service (Optional - nếu bạn muốn build image app luôn)
+  # Để chạy mục này, bạn cần chạy lệnh: ./mvnw package -Dquarkus.container-image.build=true
+  # orders-app:
+  #   image: user/orders-service:1.0.0-SNAPSHOT
+  #   depends_on:
+  #     - mysql
+  #     - rabbitmq
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     QUARKUS_DATASOURCE_JDBC_URL: jdbc:mysql://mysql:3306/orders_db
+  #     QUARKUS_DATASOURCE_PASSWORD: '123456'
+  #     RABBITMQ_HOST: rabbitmq
+
+volumes:
+  mysql_data:
