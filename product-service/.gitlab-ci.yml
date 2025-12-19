@@ -1,0 +1,32 @@
+stages:
+  - build
+  - dockerize
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+
+build_app:
+  stage: build
+  image: maven:3.9.6-eclipse-murine-21
+  script:
+    - mvn -B clean package -DskipTests
+  artifacts:
+    paths:
+      - target/
+    expire_in: 2h
+
+build_docker:
+  stage: dockerize
+  image: docker:25
+  services:
+    - docker:25-dined
+  script:
+    - docker build -f src/main/docker/Dockerfile.jvm -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+
+deploy_prod:
+  stage: deploy
+  script:
+    - echo "Deploy to production bằng k8s hoặc server tùy bạn"
+  when: manual
