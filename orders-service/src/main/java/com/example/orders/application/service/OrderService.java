@@ -4,7 +4,6 @@ import com.example.orders.application.dto.InventoryResponse;
 import com.example.orders.application.dto.OrderRequest;
 import com.example.orders.application.mapper.OrderMapper;
 import com.example.orders.domain.exception.BusinessException;
-import com.example.orders.domain.exception.OrderNotFoundException;
 import com.example.orders.domain.model.ErrorCode;
 import com.example.orders.domain.model.Order;
 import com.example.orders.domain.repository.OrderRepository;
@@ -14,7 +13,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
-
 import java.util.List;
 
 @ApplicationScoped
@@ -35,34 +33,38 @@ public class OrderService {
 
     @Transactional
     public Order createOrder(OrderRequest request) {
-        // --- 1. KIỂM TRA TỒN KHO ---
+        // 1. Kiểm tra tồn kho
         InventoryResponse inventory;
         try {
             inventory = inventoryClient.getInventoryById(request.getProductId());
         } catch (Exception e) {
-            // SỬA TẠI ĐÂY: Xóa cặp ngoặc {} và dấu ; thừa
-            throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND, "Không thể kết nối đến kho: " + e.getMessage());
+            throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND, "Không thể kết nối đến dịch vụ kho");
         }
 
-        if (inventory == null) {
-            // SỬA TẠI ĐÂY: Xóa {}
-            throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
+        if (inventory == null || inventory.quantity < request.getQuantity()) {
+            throw new BusinessException(ErrorCode.INSUFFICIENT_STOCK);
         }
 
-        if (inventory.quantity < request.getQuantity()) {
-            // SỬA TẠI ĐÂY: Xóa {}
-            throw new BusinessException(ErrorCode.INSUFFICIENT_STOCK,
-                    "Kho không đủ hàng! Hiện chỉ còn: " + inventory.quantity);
-        }
-
-        // --- 2. TẠO ORDER ---
+        // 2. Tạo đơn hàng (Trạng thái ban đầu là PENDING)
         Order order = orderMapper.toEntity(request);
         order.setStatus("PENDING");
 
+        // Giả sử lấy giá từ inventory để tính tổng tiền
+        if (inventory.price != null) {
+            order.setTotalAmount(inventory.price * request.getQuantity());
+        }
+
         orderRepository.persist(order);
 
-        // --- 3. GỬI EVENT ---
-        // eventProducer.sendOrderCreatedEvent(order);
+        // 3. Thực hiện trừ kho (Quan trọng: Nếu lỗi ở đây, DB sẽ rollback xóa Order)
+        try {
+            inventoryClient.reduceStock(request.getProductId(), request.getQuantity());
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.DATABASE_ERROR, "Lỗi khi cập nhật kho hàng");
+        }
+
+        // 4. Gửi event sang RabbitMQ cho Payment-Service xử lý
+        eventProducer.sendOrderCreatedEvent(order);
 
         return order;
     }
@@ -74,17 +76,8 @@ public class OrderService {
     public Order getOrderById(Long id) {
         Order order = orderRepository.findById(id);
         if (order == null) {
-            throw new OrderNotFoundException(id);
+            throw new BusinessException(ErrorCode.ORDER_NOT_FOUND);
         }
         return order;
-    }
-
-    @Transactional
-    public void deleteOrder(Long id) {
-        Order order = orderRepository.findById(id);
-        if (order == null) {
-            throw new OrderNotFoundException(id);
-        }
-        orderRepository.delete(order);
     }
 }

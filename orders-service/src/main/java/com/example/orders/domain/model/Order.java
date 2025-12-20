@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "orders")
 public class Order {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -24,7 +25,9 @@ public class Order {
     private String orderName;
     private String status;
     private Double totalAmount;
-
+    public Double unitPrice;  // Giá tại thời điểm mua
+    public Double totalPrice; // unitPrice * quantity
+    public Long userId;
     // Ngày tạo (input từ request)
     private LocalDateTime createdDate;
 
