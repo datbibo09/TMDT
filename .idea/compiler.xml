@@ -9,12 +9,10 @@
         <module name="api-gateway" />
         <module name="orders-service" />
         <module name="product-service" />
+        <module name="auth-service" />
         <module name="inventory-service" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel>
-      <module name="auth-service" target="21" />
-    </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
