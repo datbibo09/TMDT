@@ -1,4 +1,5 @@
 services:
+  # 1. Database - Tên service là 'mysql'
   mysql:
     image: mysql:8.0
     container_name: orders_mysql
@@ -14,6 +15,7 @@ services:
       timeout: 5s
       retries: 10
 
+  # 2. RabbitMQ
   rabbitmq:
     image: rabbitmq:3-management
     container_name: orders_rabbitmq
@@ -25,14 +27,16 @@ services:
       timeout: 5s
       retries: 10
 
+  # 3. Auth Service - Cổng 8081
   auth-service:
     build:
-      context: ./auth-service
-      dockerfile: src/main/docker/Dockerfile.jvm
+      context: .
+      dockerfile: auth-service/src/main/docker/Dockerfile.jvm
     container_name: auth-service
     ports:
       - "8081:8081"
     environment:
+      QUARKUS_HTTP_PORT: 8081
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:mysql://mysql:3306/auth_db
       QUARKUS_DATASOURCE_USERNAME: root
       QUARKUS_DATASOURCE_PASSWORD: '123456'
@@ -40,14 +44,16 @@ services:
       mysql:
         condition: service_healthy
 
+  # 4. Product Service - Cổng 8082
   product-service:
     build:
-      context: ./product-service
-      dockerfile: src/main/docker/Dockerfile.jvm
+      context: .
+      dockerfile: product-service/src/main/docker/Dockerfile.jvm
     container_name: product-service
     ports:
       - "8082:8082"
     environment:
+      QUARKUS_HTTP_PORT: 8082
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:mysql://mysql:3306/product_db
       QUARKUS_DATASOURCE_USERNAME: root
       QUARKUS_DATASOURCE_PASSWORD: '123456'
@@ -58,14 +64,16 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  # 5. Inventory Service - Cổng 8083
   inventory-service:
     build:
-      context: ./inventory-service
-      dockerfile: src/main/docker/Dockerfile.jvm
+      context: .
+      dockerfile: inventory-service/src/main/docker/Dockerfile.jvm
     container_name: inventory-service
     ports:
       - "8083:8083"
     environment:
+      QUARKUS_HTTP_PORT: 8083
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:mysql://mysql:3306/inventory_db
       QUARKUS_DATASOURCE_USERNAME: root
       QUARKUS_DATASOURCE_PASSWORD: '123456'
@@ -73,14 +81,16 @@ services:
       mysql:
         condition: service_healthy
 
+  # 6. Orders Service - Cổng 8084
   orders-service:
     build:
-      context: ./orders-service
-      dockerfile: src/main/docker/Dockerfile.jvm
+      context: .
+      dockerfile: orders-service/src/main/docker/Dockerfile.jvm
     container_name: orders-service
     ports:
       - "8084:8084"
     environment:
+      QUARKUS_HTTP_PORT: 8084
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:mysql://mysql:3306/orders_db
       QUARKUS_DATASOURCE_USERNAME: root
       QUARKUS_DATASOURCE_PASSWORD: '123456'
@@ -92,10 +102,30 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  # 7. Payment Service - Cổng 8085
+  payment-service:
+    build:
+      context: .
+      dockerfile: payment-service/src/main/docker/Dockerfile.jvm
+    container_name: payment-service
+    ports:
+      - "8085:8085"
+    environment:
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:mysql://mysql:3306/payment_db
+      QUARKUS_DATASOURCE_USERNAME: root
+      QUARKUS_DATASOURCE_PASSWORD: '123456'
+      RABBITMQ_HOST: rabbitmq
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # 8. API Gateway - Cổng 8080
   api-gateway:
     build:
-      context: ./api-gateway
-      dockerfile: src/main/docker/Dockerfile.jvm
+      context: .
+      dockerfile: api-gateway/src/main/docker/Dockerfile.jvm
     container_name: api-gateway
     ports:
       - "8080:8080"
@@ -108,6 +138,7 @@ services:
       - auth-service
       - product-service
       - orders-service
+      - inventory-service
 
 volumes:
   mysql_data:
