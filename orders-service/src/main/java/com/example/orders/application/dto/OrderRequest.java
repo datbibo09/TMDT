@@ -8,4 +8,12 @@ public record OrderRequest(
         String status,
         Double totalAmount,
         LocalDateTime createdDate
-) {}
+) {
+    public Integer getQuantity() {
+        return 0;
+    }
+
+    public Long getProductId() {
+        return 0L;
+    }
+}

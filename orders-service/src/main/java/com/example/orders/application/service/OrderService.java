@@ -26,7 +26,7 @@ public class OrderService {
     @Inject
     EntityManager em;
 
-    // Create Order
+    // 1. Tạo đơn hàng
     @Transactional
     public OrderResponse createOrder(OrderRequest request) {
         Order order = new Order();
@@ -36,13 +36,11 @@ public class OrderService {
         order.setCreatedDate(request.createdDate());
 
         orderRepository.persist(order);
-        orderRepository.flush();
 
-        // ✅ đảm bảo có ID ngay (nếu id được DB generate)
-        em.flush();
-
-        // ✅ tránh 500 nếu RabbitMQ/config đang lỗi: vẫn tạo order được
+        // Đẩy event ra RabbitMQ (nếu lỗi thì log ra console chứ không chặn tạo đơn)
         try {
+            // Lưu ý: Cần flush để có ID trước khi gửi event
+            orderRepository.flush();
             eventProducer.sendOrderCreatedEvent(order.getId());
         } catch (Exception e) {
             e.printStackTrace();
@@ -51,14 +49,14 @@ public class OrderService {
         return mapToResponse(order);
     }
 
-    // Get All
+    // 2. Lấy tất cả
     public List<OrderResponse> getAllOrders() {
         return orderRepository.listAll().stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
-    // Get by ID
+    // 3. Lấy theo ID (Hàm này đang thiếu nên gây lỗi)
     public OrderResponse getOrderById(Long id) {
         Order order = orderRepository.findById(id);
         if (order == null) {
@@ -67,7 +65,7 @@ public class OrderService {
         return mapToResponse(order);
     }
 
-    // Delete by ID
+    // 4. Xóa đơn hàng (Hàm này đang thiếu nên gây lỗi)
     @Transactional
     public void deleteOrder(Long id) {
         boolean deleted = orderRepository.deleteById(id);
@@ -76,7 +74,7 @@ public class OrderService {
         }
     }
 
-    // Mapper thủ công (có thể dùng MapStruct nếu muốn)
+    // Hàm chuyển đổi entity sang response
     private OrderResponse mapToResponse(Order order) {
         return new OrderResponse(
                 order.getId(),

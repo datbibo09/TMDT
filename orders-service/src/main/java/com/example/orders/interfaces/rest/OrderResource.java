@@ -3,6 +3,7 @@ package com.example.orders.interfaces.rest;
 import com.example.orders.application.dto.OrderRequest;
 import com.example.orders.application.dto.OrderResponse;
 import com.example.orders.application.service.OrderService;
+import com.example.orders.domain.model.Order;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -19,7 +20,7 @@ public class OrderResource {
 
     @POST
     public Response createOrder(OrderRequest request) {
-        OrderResponse response = orderService.createOrder(request);
+        Order response = orderService.createOrder(request);
         return Response.status(Response.Status.CREATED).entity(response).build();
     }
 
