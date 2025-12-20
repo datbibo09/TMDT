@@ -1,19 +1,18 @@
 package com.example.orders.application.dto;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
-// Request
-public record OrderRequest(
-        String orderName,
-        String status,
-        Double totalAmount,
-        LocalDateTime createdDate
-) {
-    public Integer getQuantity() {
-        return 0;
-    }
-
-    public Long getProductId() {
-        return 0L;
-    }
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class OrderRequest {
+    private Long productId;      // Đã thêm trường này
+    private Integer quantity;    // Thường đặt hàng sẽ cần số lượng
+    private String orderName;
+    private String status;
+    private Double totalAmount;
+    private LocalDateTime createdDate;
 }

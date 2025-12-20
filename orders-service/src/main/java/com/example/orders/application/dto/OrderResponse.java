@@ -1,10 +1,20 @@
 package com.example.orders.application.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
-public record OrderResponse(
-        Long id,
-        String orderName,
-        String status,
-        Double totalAmount,
-        LocalDateTime createdDate,
-        LocalDateTime createdAt // Time tạo
-) {}
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class OrderResponse {
+    private Long id;
+    private Long productId;      // Thêm mới
+    private Integer quantity;    // Thêm mới
+    private String orderName;
+    private String status;
+    private Double totalAmount;
+    private LocalDateTime createdDate;
+    private LocalDateTime createdAt;
+}

@@ -1,14 +1,25 @@
 package com.example.orders.domain.model;
 
 import jakarta.persistence.*;
+import lombok.Data;
+
 import java.time.LocalDateTime;
 
+@Data
 @Entity
 @Table(name = "orders")
 public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    // --- QUAN TRỌNG: Đã thêm 2 trường này để sửa lỗi ---
+    @Column(name = "product_id")
+    private Long productId;
+
+    @Column(name = "quantity")
+    private Integer quantity;
+    // ---------------------------------------------------
 
     private String orderName;
     private String status;
@@ -37,6 +48,24 @@ public class Order {
     public void setId(Long id) {
         this.id = id;
     }
+
+    // --- THÊM GETTER/SETTER CHO PRODUCT ID & QUANTITY ---
+    public Long getProductId() {
+        return productId;
+    }
+
+    public void setProductId(Long productId) {
+        this.productId = productId;
+    }
+
+    public Integer getQuantity() {
+        return quantity;
+    }
+
+    public void setQuantity(Integer quantity) {
+        this.quantity = quantity;
+    }
+    // ----------------------------------------------------
 
     public String getOrderName() {
         return orderName;

@@ -1,18 +1,18 @@
 package com.example.orders.application.service;
 
+import com.example.orders.application.dto.InventoryResponse;
 import com.example.orders.application.dto.OrderRequest;
-import com.example.orders.application.dto.OrderResponse;
+import com.example.orders.application.mapper.OrderMapper;
 import com.example.orders.domain.model.Order;
 import com.example.orders.domain.repository.OrderRepository;
+import com.example.orders.infrastructure.client.InventoryClient;
 import com.example.orders.infrastructure.messaging.OrderEventProducer;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
-import jakarta.ws.rs.NotFoundException;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class OrderService {
@@ -21,68 +21,63 @@ public class OrderService {
     OrderRepository orderRepository;
 
     @Inject
+    OrderMapper orderMapper;
+
+    @Inject
     OrderEventProducer eventProducer;
 
     @Inject
-    EntityManager em;
+    @RestClient
+    InventoryClient inventoryClient;
 
-    // 1. Tạo đơn hàng
     @Transactional
-    public OrderResponse createOrder(OrderRequest request) {
-        Order order = new Order();
-        order.setOrderName(request.orderName());
-        order.setStatus(request.status());
-        order.setTotalAmount(request.totalAmount());
-        order.setCreatedDate(request.createdDate());
+    public Order createOrder(OrderRequest request) {
+        // --- 1. KIỂM TRA TỒN KHO TRƯỚC KHI TẠO ---
+        try {
+            // Gọi sang Inventory Service
+            InventoryResponse inventory = inventoryClient.getInventoryById(request.getProductId());
+
+            if (inventory == null) {
+                throw new RuntimeException("Sản phẩm không tồn tại trong kho!");
+            }
+
+            // Lưu ý: Đảm bảo class InventoryResponse có field 'quantity' là public hoặc có getter
+            if (inventory.quantity < request.getQuantity()) {
+                throw new RuntimeException("Kho không đủ hàng! Hiện chỉ còn: " + inventory.quantity);
+            }
+
+        } catch (Exception e) {
+            // Ném lỗi để chặn việc tạo đơn hàng nếu check kho thất bại
+            throw new RuntimeException("Lỗi xác thực tồn kho: " + e.getMessage());
+        }
+
+        // --- 2. TẠO ORDER NẾU ĐỦ HÀNG ---
+        Order order = orderMapper.toEntity(request);
+        order.setStatus("PENDING");
 
         orderRepository.persist(order);
 
-        // Đẩy event ra RabbitMQ (nếu lỗi thì log ra console chứ không chặn tạo đơn)
-        try {
-            // Lưu ý: Cần flush để có ID trước khi gửi event
-            orderRepository.flush();
-            eventProducer.sendOrderCreatedEvent(order.getId());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        // --- 3. GỬI EVENT (Optional) ---
+        // eventProducer.sendOrderCreatedEvent(order);
 
-        return mapToResponse(order);
+        return order;
     }
 
-    // 2. Lấy tất cả
-    public List<OrderResponse> getAllOrders() {
-        return orderRepository.listAll().stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+    // --- CÁC HÀM CRUD BỔ SUNG (BẮT BUỘC ĐỂ KHỚP VỚI RESOURCE) ---
+
+    public List<Order> getAllOrders() {
+        return orderRepository.listAll();
     }
 
-    // 3. Lấy theo ID (Hàm này đang thiếu nên gây lỗi)
-    public OrderResponse getOrderById(Long id) {
-        Order order = orderRepository.findById(id);
-        if (order == null) {
-            throw new NotFoundException("Order not found with id " + id);
-        }
-        return mapToResponse(order);
+    public Order getOrderById(Long id) {
+        return orderRepository.findById(id);
     }
 
-    // 4. Xóa đơn hàng (Hàm này đang thiếu nên gây lỗi)
     @Transactional
     public void deleteOrder(Long id) {
         boolean deleted = orderRepository.deleteById(id);
         if (!deleted) {
-            throw new NotFoundException("Cannot delete. Order not found with id " + id);
+            throw new RuntimeException("Không tìm thấy đơn hàng để xóa với ID: " + id);
         }
-    }
-
-    // Hàm chuyển đổi entity sang response
-    private OrderResponse mapToResponse(Order order) {
-        return new OrderResponse(
-                order.getId(),
-                order.getOrderName(),
-                order.getStatus(),
-                order.getTotalAmount(),
-                order.getCreatedDate(),
-                order.getCreatedAt()
-        );
     }
 }
