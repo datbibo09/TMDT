@@ -27,10 +27,11 @@ services:
       retries: 10
 
   # --- MICROSERVICES ---
+
   auth-service:
     build:
-      context: .
-      dockerfile: auth-service/src/main/docker/Dockerfile.jvm
+      context: ./auth-service
+      dockerfile: src/main/docker/Dockerfile.jvm
     container_name: auth-service
     ports:
       - "8081:8081"
@@ -45,8 +46,8 @@ services:
 
   product-service:
     build:
-      context: .
-      dockerfile: product-service/src/main/docker/Dockerfile.jvm
+      context: ./product-service
+      dockerfile: src/main/docker/Dockerfile.jvm
     container_name: product-service
     ports:
       - "8082:8082"
@@ -64,8 +65,8 @@ services:
 
   inventory-service:
     build:
-      context: .
-      dockerfile: inventory-service/src/main/docker/Dockerfile.jvm
+      context: ./inventory-service
+      dockerfile: src/main/docker/Dockerfile.jvm
     container_name: inventory-service
     ports:
       - "8083:8083"
@@ -80,8 +81,8 @@ services:
 
   orders-service:
     build:
-      context: .
-      dockerfile: orders-service/src/main/docker/Dockerfile.jvm
+      context: ./orders-service
+      dockerfile: src/main/docker/Dockerfile.jvm
     container_name: orders-service
     ports:
       - "8084:8084"
@@ -100,8 +101,8 @@ services:
 
   payment-service:
     build:
-      context: .
-      dockerfile: payment-service/src/main/docker/Dockerfile.jvm
+      context: ./payment-service
+      dockerfile: src/main/docker/Dockerfile.jvm
     container_name: payment-service
     ports:
       - "8085:8085"
@@ -119,8 +120,8 @@ services:
 
   api-gateway:
     build:
-      context: .
-      dockerfile: api-gateway/src/main/docker/Dockerfile.jvm
+      context: ./api-gateway
+      dockerfile: src/main/docker/Dockerfile.jvm
     container_name: api-gateway
     ports:
       - "8080:8080"
