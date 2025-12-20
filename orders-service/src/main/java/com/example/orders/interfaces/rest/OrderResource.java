@@ -50,9 +50,9 @@ public class OrderResource {
 
     @DELETE
     @Path("/{id}")
-    public Response deleteOrder(@PathParam("id") Long id) {
-        orderService.deleteOrder(id);
-        return Response.noContent().build();
+    public Response delete(@PathParam("id") Long id) {
+        boolean deleted = orderService.deleteOrder(id);
+        return deleted ? Response.noContent().build() : Response.status(Response.Status.NOT_FOUND).build();
     }
 
     // --- Hàm phụ trợ để Map từ Entity sang DTO ---

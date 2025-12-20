@@ -64,7 +64,7 @@ public class OrderService {
         }
 
         // 4. Gửi event sang RabbitMQ cho Payment-Service xử lý
-        eventProducer.sendOrderCreatedEvent(order);
+        eventProducer.sendOrderCreatedEvent(order.getId());
 
         return order;
     }
@@ -79,5 +79,9 @@ public class OrderService {
             throw new BusinessException(ErrorCode.ORDER_NOT_FOUND);
         }
         return order;
+    }
+    @Transactional
+    public boolean deleteOrder(Long id) {
+        return orderRepository.deleteById(id);
     }
 }
