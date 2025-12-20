@@ -8,6 +8,7 @@
         <outputRelativeToContentRoot value="true" />
         <module name="orders-service" />
         <module name="product-service" />
+        <module name="inventory-service" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
