@@ -1,0 +1,22 @@
+# Stage 1: Build
+FROM maven:3.9.0-eclipse-temurin-17 AS build
+WORKDIR /app
+
+# Copy cả source inventory-service và api-gateway
+COPY ./inventory-service /app/inventory-service
+COPY ./api-gateway /app/api-gateway
+
+# Build inventory-service trước
+RUN mvn -f /app/inventory-service/pom.xml clean install -DskipTests
+
+# Build API Gateway
+RUN mvn -f /app/api-gateway/pom.xml clean package -DskipTests
+
+# Stage 2: Runtime
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+
+# Copy jar API Gateway
+COPY --from=build /app/api-gateway/target/api-gateway-1.0.0-SNAPSHOT.jar ./api-gateway.jar
+
+ENTRYPOINT ["java", "-jar", "api-gateway.jar"]
