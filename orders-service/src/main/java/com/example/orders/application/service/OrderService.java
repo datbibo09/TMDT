@@ -3,6 +3,9 @@ package com.example.orders.application.service;
 import com.example.orders.application.dto.InventoryResponse;
 import com.example.orders.application.dto.OrderRequest;
 import com.example.orders.application.mapper.OrderMapper;
+import com.example.orders.domain.exception.BusinessException;
+import com.example.orders.domain.exception.OrderNotFoundException;
+import com.example.orders.domain.model.ErrorCode;
 import com.example.orders.domain.model.Order;
 import com.example.orders.domain.repository.OrderRepository;
 import com.example.orders.infrastructure.client.InventoryClient;
@@ -32,52 +35,56 @@ public class OrderService {
 
     @Transactional
     public Order createOrder(OrderRequest request) {
-        // --- 1. KIỂM TRA TỒN KHO TRƯỚC KHI TẠO ---
+        // --- 1. KIỂM TRA TỒN KHO ---
+        InventoryResponse inventory;
         try {
-            // Gọi sang Inventory Service
-            InventoryResponse inventory = inventoryClient.getInventoryById(request.getProductId());
-
-            if (inventory == null) {
-                throw new RuntimeException("Sản phẩm không tồn tại trong kho!");
-            }
-
-            // Lưu ý: Đảm bảo class InventoryResponse có field 'quantity' là public hoặc có getter
-            if (inventory.quantity < request.getQuantity()) {
-                throw new RuntimeException("Kho không đủ hàng! Hiện chỉ còn: " + inventory.quantity);
-            }
-
+            inventory = inventoryClient.getInventoryById(request.getProductId());
         } catch (Exception e) {
-            // Ném lỗi để chặn việc tạo đơn hàng nếu check kho thất bại
-            throw new RuntimeException("Lỗi xác thực tồn kho: " + e.getMessage());
+            // SỬA TẠI ĐÂY: Xóa cặp ngoặc {} và dấu ; thừa
+            throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND, "Không thể kết nối đến kho: " + e.getMessage());
         }
 
-        // --- 2. TẠO ORDER NẾU ĐỦ HÀNG ---
+        if (inventory == null) {
+            // SỬA TẠI ĐÂY: Xóa {}
+            throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
+        }
+
+        if (inventory.quantity < request.getQuantity()) {
+            // SỬA TẠI ĐÂY: Xóa {}
+            throw new BusinessException(ErrorCode.INSUFFICIENT_STOCK,
+                    "Kho không đủ hàng! Hiện chỉ còn: " + inventory.quantity);
+        }
+
+        // --- 2. TẠO ORDER ---
         Order order = orderMapper.toEntity(request);
         order.setStatus("PENDING");
 
         orderRepository.persist(order);
 
-        // --- 3. GỬI EVENT (Optional) ---
+        // --- 3. GỬI EVENT ---
         // eventProducer.sendOrderCreatedEvent(order);
 
         return order;
     }
-
-    // --- CÁC HÀM CRUD BỔ SUNG (BẮT BUỘC ĐỂ KHỚP VỚI RESOURCE) ---
 
     public List<Order> getAllOrders() {
         return orderRepository.listAll();
     }
 
     public Order getOrderById(Long id) {
-        return orderRepository.findById(id);
+        Order order = orderRepository.findById(id);
+        if (order == null) {
+            throw new OrderNotFoundException(id);
+        }
+        return order;
     }
 
     @Transactional
     public void deleteOrder(Long id) {
-        boolean deleted = orderRepository.deleteById(id);
-        if (!deleted) {
-            throw new RuntimeException("Không tìm thấy đơn hàng để xóa với ID: " + id);
+        Order order = orderRepository.findById(id);
+        if (order == null) {
+            throw new OrderNotFoundException(id);
         }
+        orderRepository.delete(order);
     }
 }
