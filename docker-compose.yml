@@ -1,42 +1,139 @@
-version: '3.8'
-
 services:
-  # 1. MySQL Database
+  # --- HẠ TẦNG (INFRASTRUCTURE) ---
   mysql:
     image: mysql:8.0
     container_name: orders_mysql
     environment:
-      MYSQL_ROOT_PASSWORD: '123456' # Mật khẩu root
-      MYSQL_DATABASE: orders_db
-      MYSQL_USER: user
-      MYSQL_PASSWORD: '123456' # Mật khẩu bạn yêu cầu
+      MYSQL_ROOT_PASSWORD: '123456'
     ports:
       - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  #
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 5s
+      retries: 10
 
-  # 2. RabbitMQ
   rabbitmq:
     image: rabbitmq:3-management
     container_name: orders_rabbitmq
     ports:
-      - "5672:5672" # Port kết nối ứng dụng
-      - "15672:15672" # Port UI quản lý (user/pass: guest/guest)
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: rabbitmq-diagnostics -q check_running
+      timeout: 5s
+      retries: 10
 
-  # 3. Orders Service (Optional - nếu bạn muốn build image app luôn)
-  # Để chạy mục này, bạn cần chạy lệnh: ./mvnw package -Dquarkus.container-image.build=true
-  # orders-app:
-  #   image: user/orders-service:1.0.0-SNAPSHOT
-  #   depends_on:
-  #     - mysql
-  #     - rabbitmq
-  #   ports:
-  #     - "8080:8080"
-  #   environment:
-  #     QUARKUS_DATASOURCE_JDBC_URL: jdbc:mysql://mysql:3306/orders_db
-  #     QUARKUS_DATASOURCE_PASSWORD: '123456'
-  #     RABBITMQ_HOST: rabbitmq
+  # --- MICROSERVICES ---
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth-service/src/main/docker/Dockerfile.jvm
+    container_name: auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      QUARKUS_HTTP_PORT: 8081
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:mysql://mysql:3306/auth_db
+      QUARKUS_DATASOURCE_USERNAME: root
+      QUARKUS_DATASOURCE_PASSWORD: '123456'
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  product-service:
+    build:
+      context: .
+      dockerfile: product-service/src/main/docker/Dockerfile.jvm
+    container_name: product-service
+    ports:
+      - "8082:8082"
+    environment:
+      QUARKUS_HTTP_PORT: 8082
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:mysql://mysql:3306/product_db
+      QUARKUS_DATASOURCE_USERNAME: root
+      QUARKUS_DATASOURCE_PASSWORD: '123456'
+      RABBITMQ_HOST: rabbitmq
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: inventory-service/src/main/docker/Dockerfile.jvm
+    container_name: inventory-service
+    ports:
+      - "8083:8083"
+    environment:
+      QUARKUS_HTTP_PORT: 8083
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:mysql://mysql:3306/inventory_db
+      QUARKUS_DATASOURCE_USERNAME: root
+      QUARKUS_DATASOURCE_PASSWORD: '123456'
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  orders-service:
+    build:
+      context: .
+      dockerfile: orders-service/src/main/docker/Dockerfile.jvm
+    container_name: orders-service
+    ports:
+      - "8084:8084"
+    environment:
+      QUARKUS_HTTP_PORT: 8084
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:mysql://mysql:3306/orders_db
+      QUARKUS_DATASOURCE_USERNAME: root
+      QUARKUS_DATASOURCE_PASSWORD: '123456'
+      QUARKUS_REST_CLIENT_INVENTORY_API_URL: http://inventory-service:8083
+      RABBITMQ_HOST: rabbitmq
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: payment-service/src/main/docker/Dockerfile.jvm
+    container_name: payment-service
+    ports:
+      - "8085:8085"
+    environment:
+      QUARKUS_HTTP_PORT: 8085
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:mysql://mysql:3306/payment_db
+      QUARKUS_DATASOURCE_USERNAME: root
+      QUARKUS_DATASOURCE_PASSWORD: '123456'
+      RABBITMQ_HOST: rabbitmq
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/src/main/docker/Dockerfile.jvm
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      QUARKUS_REST_CLIENT_AUTH_CLIENT_URL: http://auth-service:8081
+      QUARKUS_REST_CLIENT_PRODUCT_CLIENT_URL: http://product-service:8082
+      QUARKUS_REST_CLIENT_ORDER_CLIENT_URL: http://orders-service:8084
+      QUARKUS_REST_CLIENT_INVENTORY_CLIENT_URL: http://inventory-service:8083
+    depends_on:
+      - auth-service
+      - product-service
+      - orders-service
+      - inventory-service
 
 volumes:
   mysql_data:

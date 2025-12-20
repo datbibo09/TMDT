@@ -1,18 +1,14 @@
-# Stage 1: Build
-FROM maven:3.9.0-eclipse-temurin-17 AS build
-WORKDIR /app
+FROM registry.access.redhat.com/ubi9/openjdk-21:1.23
+ENV LANGUAGE='en_US:en'
 
-# Copy toàn bộ source inventory-service
-COPY ./inventory-service /app
+COPY --chown=185 inventory-service/target/quarkus-app/lib/ /deployments/lib/
+COPY --chown=185 inventory-service/target/quarkus-app/*.jar /deployments/
+COPY --chown=185 inventory-service/target/quarkus-app/app/ /deployments/app/
+COPY --chown=185 inventory-service/target/quarkus-app/quarkus/ /deployments/quarkus/
 
-# Build và package
-RUN mvn clean package -DskipTests
+EXPOSE 8083
+USER 185
+ENV JAVA_OPTS_APPEND="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
+ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
 
-# Stage 2: Runtime
-FROM eclipse-temurin:17-jre
-WORKDIR /app
-
-# Copy jar từ stage build
-COPY --from=build /app/target/inventory-service-1.0.0-runner.jar ./inventory-service.jar
-
-ENTRYPOINT ["java", "-jar", "inventory-service.jar"]
+ENTRYPOINT [ "/opt/jboss/container/java/run/run-java.sh" ]
